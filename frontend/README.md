@@ -52,3 +52,56 @@ export default tseslint.config({
   },
 })
 ```
+
+# 이터널 리턴 전적 검색
+
+이터널 리턴 게임의 전적을 검색할 수 있는 웹 애플리케이션입니다.
+
+## 시작하기
+
+### 필수 요구사항
+
+- Node.js 16 이상
+- npm 또는 yarn
+
+### 설치
+
+1. 저장소를 클론합니다:
+```bash
+git clone [repository-url]
+cd frontend
+```
+
+2. 의존성 패키지를 설치합니다:
+```bash
+npm install
+```
+
+3. 환경 변수 설정:
+프로젝트 루트 디렉토리에 `.env` 파일을 생성하고 다음 내용을 추가합니다:
+```
+VITE_ER_API_KEY=your_api_key_here
+```
+`your_api_key_here` 부분을 이터널 리턴 API 키로 교체하세요.
+
+### 실행
+
+개발 서버를 시작합니다:
+```bash
+npm run dev
+```
+
+## 기능
+
+- 닉네임으로 유저 검색
+- 유저 상세 정보 조회
+- 최근 전적 목록 확인
+- MMR, 승률, 평균 킬/어시스트 등 통계 정보 표시
+
+## 기술 스택
+
+- React
+- TypeScript
+- Tailwind CSS
+- Axios
+- React Router

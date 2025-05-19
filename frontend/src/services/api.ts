@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+// Spring Boot 프록시 URL
 const BASE_URL = 'http://localhost:8080/api/bser';
 console.log('Using Spring Boot proxy server at:', BASE_URL);
 
@@ -16,6 +17,66 @@ export interface NicknameData {
   userNum: number;
   nickname: string;
 }
+
+export interface BserGameDto {
+  userNum: number;
+  serverCode: number;
+  mmr: number;
+  serverRank: number;
+  nickname: string;
+  rank: number;
+}
+
+export interface BserRankDto {
+  userNum: number;
+  serverCode: number;
+  mmr: number;
+  serverRank: number;
+  nickname: string;
+  rank: number;
+}
+
+export interface UserRankData {
+  userNum: number;
+  serverCode: number;
+  mmr: number;
+  serverRank: number;
+  nickname: string;
+  rank: number;
+}
+
+// 1) 닉네임 검색
+export const searchUser = async (nickname: string): Promise<NicknameData[]> => {
+  const { data: res } = await api.get<CommonResponse<NicknameData[]>>(
+    `/user/nickname?query=${encodeURIComponent(nickname)}`
+  );
+  console.log('Search response:', res);
+  if (res.code !== 200) {
+    throw new Error(res.message || '유저를 찾을 수 없습니다.');
+  }
+  return res.data ?? [];
+};
+
+/** 백엔드 프록시로 게임 전적만 가져오기 */
+export const getBserGames = async (userNum: number): Promise<BserGameDto[]> => {
+  const { data: res } = await api.get<CommonResponse<BserGameDto[]>>(`/games/${userNum}`);
+  if (res.code !== 200) throw new Error(res.message);
+  return res.data;
+};
+
+// 3) 랭크 정보 조회
+export const getBserRank = async (
+  userNum: number,
+  seasonId = 31,
+  mode = 3
+): Promise<BserRankDto> => {
+  const { data: res } = await api.get<CommonResponse<BserRankDto>>(
+    `/rank/${userNum}/${seasonId}/${mode}`
+  );
+  if (res.code !== 200) throw new Error(res.message);
+  return res.data;
+};
+
 export interface UserStats {
   userNum: number;
   nickname: string;
@@ -49,17 +110,6 @@ export interface StatsResponse {
   summary: UserStats;
   matches: MatchDetail[];
 }
-
-export const searchUser = async (nickname: string): Promise<NicknameData[]> => {
-  const res = await api.get<CommonResponse<NicknameData[]>>(
-    `/user/nickname?query=${encodeURIComponent(nickname)}`
-  );
-  console.log('Search response:', res.data);
-  if (res.data.code !== 200) {
-    throw new Error(res.data.message || '유저를 찾을 수 없습니다.');
-  }
-  return res.data.data ?? [];
-};
 
 export const getUserStats = async (userNum: number): Promise<StatsResponse> => {
   const res = await api.get<any>(`/user/games/${userNum}`);

@@ -1,128 +1,234 @@
-import axios from 'axios';
-import { 
-  User, 
-  UserStats, 
-  UserGame, 
-  RankData, 
-  Character, 
-  PlayerStatsResponse 
-} from '@/types/api';
-import { API_ENDPOINTS } from '@/utils/constants';
+import type { 
+  NicknameDto, 
+  Player, 
+  BserGameDto, 
+  BserUserDetailDto, 
+  BserCharacterStatsDto,
+  BserRankDto,
+  CommonResponse 
+} from '../types/game';
 
-// 백엔드 API (localhost:8080)
-const api = axios.create({
-  baseURL: 'http://localhost:8080/api/v1',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// 🌐 API 기본 설정
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
-// 응답 인터셉터로 에러 처리
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error);
-    return Promise.reject(error);
+class ApiService {
+  // 🔍 닉네임으로 플레이어 검색
+  async searchPlayerByNickname(nickname: string): Promise<CommonResponse<NicknameDto[]>> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/players/search?nickname=${encodeURIComponent(nickname)}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error searching player:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          throw new Error('서버에 연결할 수 없습니다. 네트워크 연결을 확인하세요.');
+        } else if (error.message.includes('HTTP error! status: 500')) {
+          throw new Error('서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        } else if (error.message.includes('HTTP error! status: 404')) {
+          throw new Error('플레이어를 찾을 수 없습니다.');
+        }
+      }
+      
+      throw new Error('플레이어 검색 중 오류가 발생했습니다.');
+    }
   }
-);
 
-// 1. 닉네임 → userNum 조회
-export const searchPlayer = async (nickname: string) => {
-  try {
-    const response = await api.get(`/players/search?nickname=${encodeURIComponent(nickname)}`);
-    return response.data.data || [];
-  } catch (error) {
-    console.error('Error searching player:', error);
-    return [];
+  // 👤 플레이어 상세 정보 조회
+  async getPlayerDetail(userNum: number): Promise<CommonResponse<Player>> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/players/${userNum}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting player detail:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          throw new Error('서버에 연결할 수 없습니다.');
+        } else if (error.message.includes('HTTP error! status: 404')) {
+          throw new Error('플레이어 정보를 찾을 수 없습니다.');
+        }
+      }
+      
+      throw new Error('플레이어 정보 조회 중 오류가 발생했습니다.');
+    }
   }
-};
 
-// 2. 유저 시즌 통계 조회 (V1)
-export const getUserStats = async (userNum: number, seasonId: number) => {
-  try {
-    const response = await api.get(`/stats/user/${userNum}/${seasonId}`);
-    return response.data.data;
-  } catch (error) {
-    console.error('Error fetching user stats:', error);
-    return null;
+  // 🎮 플레이어 게임 기록 조회
+  async getPlayerMatches(userNum: number): Promise<CommonResponse<BserGameDto[]>> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/players/${userNum}/matches`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting player matches:', error);
+      
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error('서버에 연결할 수 없습니다.');
+      }
+      
+      throw new Error('게임 기록 조회 중 오류가 발생했습니다.');
+    }
   }
-};
 
-// 3. 유저 캐릭터별 통계 조회 (V1)
-export const getUserCharacterStats = async (userNum: number, seasonId: number) => {
-  try {
-    const response = await api.get(`/stats/user/${userNum}/${seasonId}/characters`);
-    return response.data.data;
-  } catch (error) {
-    console.error('Error fetching user character stats:', error);
-    return null;
+  // 🏆 플레이어 랭크 정보 조회
+  async getPlayerRank(userNum: number, seasonId: number = 22, mode: number = 1): Promise<CommonResponse<BserRankDto>> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/bser/rank/${userNum}/${seasonId}/${mode}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting player rank:', error);
+      
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error('서버에 연결할 수 없습니다.');
+      }
+      
+      throw new Error('랭크 정보 조회 중 오류가 발생했습니다.');
+    }
   }
-};
 
-// 4. 유저 최근 전적 조회
-export const getPlayerMatches = async (userNum: number) => {
-  try {
-    const response = await api.get(`/players/${userNum}/matches`);
-    return response.data.data || [];
-  } catch (error) {
-    console.error('Error fetching player matches:', error);
-    return [];
+  // 📊 랭킹 조회
+  async getRanking(page: number = 0, size: number = 50, tier?: string): Promise<CommonResponse<Player[]>> {
+    try {
+      const params = new URLSearchParams({ 
+        page: page.toString(), 
+        size: size.toString() 
+      });
+      if (tier) params.append('tier', tier);
+      
+      const response = await fetch(`${API_BASE_URL}/ranking?${params}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting ranking:', error);
+      
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error('서버에 연결할 수 없습니다.');
+      }
+      
+      throw new Error('랭킹 조회 중 오류가 발생했습니다.');
+    }
   }
-};
 
-// 5. 랭킹 목록 조회 (내부 DB)
-export const getRanking = async (page: number = 0, size: number = 30) => {
-  try {
-    const response = await api.get(`/ranking?page=${page}&size=${size}`);
-    return response.data.data || [];
-  } catch (error) {
-    console.error('Error fetching ranking:', error);
-    return [];
+  // 🔄 하위호환 - BSER API 닉네임 검색
+  async getUserByNickname(query: string): Promise<CommonResponse<NicknameDto[]>> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/bser/user/nickname?query=${encodeURIComponent(query)}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting user by nickname:', error);
+      throw new Error('BSER API 닉네임 검색 중 오류가 발생했습니다.');
+    }
   }
-};
 
-// 6. 유저 개별 랭크 조회
-export const getUserRank = async (userNum: number, seasonId: number, mode: number) => {
-  try {
-    const response = await api.get(`/bser/rank/${userNum}/${seasonId}/${mode}`);
-    return response.data.data;
-  } catch (error) {
-    console.error('Error fetching user rank:', error);
-    return null;
+  // 🔄 하위호환 - BSER API 게임 기록 조회
+  async getGamesByUser(userNum: number): Promise<CommonResponse<BserGameDto[]>> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/bser/games/${userNum}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting games by user:', error);
+      throw new Error('BSER API 게임 기록 조회 중 오류가 발생했습니다.');
+    }
   }
-};
 
-// 7. BSER 닉네임 검색 (하위호환)
-export const searchPlayerBSER = async (nickname: string) => {
-  try {
-    const response = await api.get(`/bser/user/nickname?query=${encodeURIComponent(nickname)}`);
-    return response.data.data;
-  } catch (error) {
-    console.error('Error searching player BSER:', error);
-    return null;
+  // 🎯 통합 플레이어 정보 조회 (편의 메서드)
+  async getCompletePlayerInfo(userNum: number, seasonId: number = 22) {
+    const playerResponse = await this.getPlayerDetail(userNum);
+    const matchesResponse = await this.getPlayerMatches(userNum);
+    
+    let statsResponse = null;
+    try {
+      statsResponse = await this.getPlayerRank(userNum, seasonId);
+    } catch (error) {
+      console.warn('Rank info not available:', error);
+    }
+
+    // 캐릭터 통계 계산
+    const characterStats: BserCharacterStatsDto[] = [];
+    if (matchesResponse.data && matchesResponse.data.length > 0) {
+      const characterStatsMap: { [key: number]: any } = {};
+      
+      matchesResponse.data.forEach(match => {
+        const charCode = match.characterNum;
+        const charName = match.characterName;
+        
+        if (!characterStatsMap[charCode]) {
+          characterStatsMap[charCode] = {
+            characterCode: charCode,
+            characterName: charName,
+            totalGames: 0,
+            totalWins: 0,
+            totalKills: 0,
+            totalRanks: 0
+          };
+        }
+        
+        const char = characterStatsMap[charCode];
+        char.totalGames++;
+        if (match.gameRank <= 4) char.totalWins++; // Top 4 as win
+        char.totalKills += match.playerKill || 0;
+        char.totalRanks += match.gameRank || 0;
+      });
+      
+      characterStats.push(
+        ...Object.values(characterStatsMap).map((char: any) => ({
+          ...char,
+          winRate: (char.totalWins / char.totalGames) * 100,
+          averageRank: char.totalRanks / char.totalGames,
+          averageKills: char.totalKills / char.totalGames
+        })).sort((a: any, b: any) => b.totalGames - a.totalGames)
+      );
+    }
+
+    return {
+      player: playerResponse.data,
+      stats: statsResponse?.data,
+      matches: matchesResponse.data || [],
+      characterStats
+    };
   }
-};
+}
 
-// 8. BSER 전적 조회 (하위호환)
-export const getPlayerGamesBSER = async (userNum: number) => {
-  try {
-    const response = await api.get(`/bser/games/${userNum}`);
-    return response.data.data || [];
-  } catch (error) {
-    console.error('Error fetching player games BSER:', error);
-    return [];
-  }
-};
-
-// 9. 게임 상세 정보 (현재 null 반환 중)
-export const getMatchDetail = async (gameId: number) => {
-  try {
-    const response = await api.get(`/matches/${gameId}`);
-    return response.data.data;
-  } catch (error) {
-    console.error('Error fetching match detail:', error);
-    return null;
-  }
-};
-
-export default api;
+// 🚀 싱글톤 인스턴스 내보내기
+export const apiService = new ApiService();

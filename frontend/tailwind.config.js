@@ -1,7 +1,10 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   darkMode: ["class"],
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./src/**/*.{js,jsx,ts,tsx}",
+    "./public/index.html",
+  ],
   theme: {
     container: {
       center: true,
@@ -70,11 +73,24 @@ export default {
           800: "#1e40af",
           900: "#1e3a8a",
         },
+        // 🎮 게이밍 테마 색상
+        'neon-cyan': '#06b6d4',
+        'neon-purple': '#8b5cf6', 
+        'neon-pink': '#ec4899',
+        'gaming-dark': '#0f172a',
+        'gaming-gray': '#1e293b',
+      },
+      backgroundImage: {
+        'gaming-gradient': 'linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #ec4899 100%)',
+        'dark-gradient': 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+        'neon-gradient': 'linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899)',
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        'xl': '0.75rem',
+        '2xl': '1rem',
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
@@ -88,10 +104,43 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        float: {
+          '0%, 100%': { 
+            transform: 'translateY(0px) rotate(0deg)' 
+          },
+          '33%': { 
+            transform: 'translateY(-20px) rotate(1deg)' 
+          },
+          '66%': { 
+            transform: 'translateY(-10px) rotate(-1deg)' 
+          },
+        },
+        glow: {
+          '0%, 100%': { 
+            boxShadow: '0 0 20px rgba(6, 182, 212, 0.5)' 
+          },
+          '50%': { 
+            boxShadow: '0 0 30px rgba(139, 92, 246, 0.8)' 
+          },
+        },
+        pulse: {
+          '0%': { opacity: 1 },
+          '50%': { opacity: 0.5 },
+          '100%': { opacity: 1 },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        'float': 'float 6s ease-in-out infinite',
+        'glow': 'glow 2s ease-in-out infinite alternate',
+        'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      },
+      boxShadow: {
+        'neon': '0 0 20px rgba(6, 182, 212, 0.5)',
+        'neon-lg': '0 0 30px rgba(6, 182, 212, 0.7)',
+        'gaming': '0 4px 14px 0 rgba(6, 182, 212, 0.25)',
+        'gaming-lg': '0 10px 25px -3px rgba(6, 182, 212, 0.4)',
       },
     },
   },

@@ -1,8 +1,4 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
 
 @layer base {
   :root {
@@ -54,7 +50,7 @@
   }
   body {
     @apply bg-background text-foreground leading-relaxed;
-    font-family: 'Pretendard', sans-serif;
+    font-family: "Pretendard", sans-serif;
   }
   a {
     @apply text-primary hover:underline hover:text-primary-foreground;
@@ -95,8 +91,13 @@
 
 /* 애니메이션 */
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 .animate-float {
   animation: float 3s ease-in-out infinite;
@@ -113,11 +114,12 @@
 /* 그라디언트 보더 */
 .gradient-border {
   position: relative;
-  background: linear-gradient(white, white) padding-box, linear-gradient(135deg, #ec4899, #be185d) border-box;
+  background: linear-gradient(white, white) padding-box,
+    linear-gradient(135deg, #ec4899, #be185d) border-box;
   border: 2px solid transparent;
 }
 
 /* 카드 UI 유틸리티 */
 .card-tile {
   @apply bg-card text-card-foreground rounded-xl p-5 shadow-md;
-} 
+}

@@ -1,15 +1,25 @@
 // src/App.tsx
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, createContext, useContext } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Link,
+  useNavigate,
+} from "react-router-dom";
 import {
   searchPlayer,
   getUserStats,
   getPlayerMatches,
   getRanking,
-  getUserRank
-} from './services/api';
-import { Player, NicknameDto, BserGameDto, BserUserDetailDto } from './types/api';
-import './App.css';
+  getUserRank,
+} from "./services/api";
+import {
+  Player,
+  NicknameDto,
+  BserGameDto,
+  BserUserDetailDto,
+} from "./types/api";
 
 // 전역 상태 관리를 위한 Context
 interface AppContextType {
@@ -28,16 +38,17 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const useAppContext = (): AppContextType => {
   const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useAppContext must be used within AppProvider');
+    throw new Error("useAppContext must be used within AppProvider");
   }
   return context;
 };
 
 // 검색 컴포넌트
 const SearchComponent: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<NicknameDto[]>([]);
-  const { setCurrentPlayer, addSearchHistory, loading, setLoading, setError } = useAppContext();
+  const { setCurrentPlayer, addSearchHistory, loading, setLoading, setError } =
+    useAppContext();
   const navigate = useNavigate();
 
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -51,7 +62,7 @@ const SearchComponent: React.FC = () => {
       // 닉네임으로 유저 검색
       const results = await searchPlayer(searchQuery.trim());
       setSearchResults(results);
-      
+
       if (results.length === 1) {
         // 결과가 하나면 바로 해당 플레이어로 이동
         const playerDetail = await getUserRank(results[0].userNum, 25, 1);
@@ -60,8 +71,10 @@ const SearchComponent: React.FC = () => {
         navigate(`/player/${results[0].userNum}`);
       }
     } catch (error) {
-      console.error('Search failed:', error);
-      setError(error instanceof Error ? error.message : '검색 중 오류가 발생했습니다.');
+      console.error("Search failed:", error);
+      setError(
+        error instanceof Error ? error.message : "검색 중 오류가 발생했습니다."
+      );
     } finally {
       setLoading(false);
     }
@@ -75,26 +88,32 @@ const SearchComponent: React.FC = () => {
       addSearchHistory(player.nickname);
       navigate(`/player/${player.userNum}`);
     } catch (error) {
-      console.error('Failed to get player detail:', error);
-      setError('플레이어 정보를 불러오는 중 오류가 발생했습니다.');
+      console.error("Failed to get player detail:", error);
+      setError("플레이어 정보를 불러오는 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="search-container">
+    <div className="search-container bg-blue-500">
       <form onSubmit={handleSearch} className="search-form">
         <input
           type="text"
           value={searchQuery}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setSearchQuery(e.target.value)
+          }
           placeholder="닉네임을 입력하세요"
           className="search-input"
           disabled={loading}
         />
-        <button type="submit" className="search-button" disabled={loading || !searchQuery.trim()}>
-          {loading ? '검색 중...' : '검색'}
+        <button
+          type="submit"
+          className="search-button"
+          disabled={loading || !searchQuery.trim()}
+        >
+          {loading ? "검색 중..." : "검색"}
         </button>
       </form>
 
@@ -135,11 +154,14 @@ const HomePage: React.FC = () => {
         <section className="recent-searches">
           <h2>최근 검색</h2>
           <div className="search-history">
-            {searchHistory.slice(-5).reverse().map((nickname, index) => (
-              <span key={index} className="history-item">
-                {nickname}
-              </span>
-            ))}
+            {searchHistory
+              .slice(-5)
+              .reverse()
+              .map((nickname, index) => (
+                <span key={index} className="history-item">
+                  {nickname}
+                </span>
+              ))}
           </div>
         </section>
       )}
@@ -173,11 +195,11 @@ const PlayerDetailPage: React.FC<{ userNum: string }> = ({ userNum }) => {
 
       try {
         const playerNum = parseInt(userNum);
-        
+
         // 병렬로 데이터 로드
         const [playerDetail, playerMatches] = await Promise.all([
           getUserRank(playerNum, 25, 1),
-          getPlayerMatches(playerNum)
+          getPlayerMatches(playerNum),
         ]);
 
         setPlayer(playerDetail);
@@ -188,11 +210,11 @@ const PlayerDetailPage: React.FC<{ userNum: string }> = ({ userNum }) => {
           const currentSeasonStats = await getUserStats(playerNum, 25);
           setStats(currentSeasonStats);
         } catch (error) {
-          console.warn('Failed to load stats:', error);
+          console.warn("Failed to load stats:", error);
         }
       } catch (error) {
-        console.error('Failed to load player data:', error);
-        setError('플레이어 정보를 불러오는 중 오류가 발생했습니다.');
+        console.error("Failed to load player data:", error);
+        setError("플레이어 정보를 불러오는 중 오류가 발생했습니다.");
       } finally {
         setLoading(false);
       }
@@ -225,7 +247,9 @@ const PlayerDetailPage: React.FC<{ userNum: string }> = ({ userNum }) => {
             </div>
             <div className="stat-item">
               <span className="stat-label">평균 킬</span>
-              <span className="stat-value">{stats.averageKills.toFixed(1)}</span>
+              <span className="stat-value">
+                {stats.averageKills.toFixed(1)}
+              </span>
             </div>
           </div>
         )}
@@ -237,7 +261,9 @@ const PlayerDetailPage: React.FC<{ userNum: string }> = ({ userNum }) => {
           {matches.slice(0, 10).map((match) => (
             <div key={match.gameId} className="match-item">
               <div className="match-rank">#{match.gameRank}</div>
-              <div className="match-character">{match.characterName || `캐릭터 ${match.characterNum}`}</div>
+              <div className="match-character">
+                {match.characterName || `캐릭터 ${match.characterNum}`}
+              </div>
               <div className="match-kda">
                 {match.playerKill}/{match.playerAssistant}
               </div>
@@ -256,7 +282,7 @@ const PlayerDetailPage: React.FC<{ userNum: string }> = ({ userNum }) => {
 const RankingPage: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(0);
-  const [selectedTier, setSelectedTier] = useState<string>('');
+  const [selectedTier, setSelectedTier] = useState<string>("");
   const { loading, setLoading, setError } = useAppContext();
 
   const loadRanking = async (page: number = 0, tier?: string) => {
@@ -268,8 +294,8 @@ const RankingPage: React.FC = () => {
       setPlayers(ranking);
       setCurrentPage(page);
     } catch (error) {
-      console.error('Failed to load ranking:', error);
-      setError('랭킹을 불러오는 중 오류가 발생했습니다.');
+      console.error("Failed to load ranking:", error);
+      setError("랭킹을 불러오는 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -286,7 +312,7 @@ const RankingPage: React.FC = () => {
   return (
     <div className="ranking-page">
       <h1>랭킹</h1>
-      
+
       <div className="ranking-filters">
         <select value={selectedTier} onChange={handleTierChange}>
           <option value="">전체 티어</option>
@@ -312,7 +338,12 @@ const RankingPage: React.FC = () => {
             </div>
             <div className="player-mmr">{player.mmr} MMR</div>
             <div className="player-winrate">
-              {player.totalGames ? ((player.totalWins || 0) / player.totalGames * 100).toFixed(1) : 0}%
+              {player.totalGames
+                ? (((player.totalWins || 0) / player.totalGames) * 100).toFixed(
+                    1
+                  )
+                : 0}
+              %
             </div>
           </div>
         ))}
@@ -338,7 +369,9 @@ const RankingPage: React.FC = () => {
 };
 
 // 에러 경계 컴포넌트
-const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { error, setError } = useAppContext();
 
   if (error) {
@@ -362,8 +395,8 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const addSearchHistory = (nickname: string) => {
-    setSearchHistory(prev => {
-      const filtered = prev.filter(item => item !== nickname);
+    setSearchHistory((prev) => {
+      const filtered = prev.filter((item) => item !== nickname);
       return [nickname, ...filtered].slice(0, 10); // 최대 10개까지 저장
     });
   };
@@ -396,26 +429,26 @@ const App: React.FC = () => {
           <main className="main-content">
             <ErrorBoundary>
               {loading && <div className="global-loading">로딩 중...</div>}
-              
+
               <Routes>
                 <Route path="/" element={<HomePage />} />
-                <Route 
-                  path="/player/:userNum" 
+                <Route
+                  path="/player/:userNum"
                   element={
-                    <PlayerDetailPage 
-                      userNum={window.location.pathname.split('/').pop() || '0'} 
+                    <PlayerDetailPage
+                      userNum={window.location.pathname.split("/").pop() || "0"}
                     />
-                  } 
+                  }
                 />
                 <Route path="/ranking" element={<RankingPage />} />
-                <Route 
-                  path="*" 
+                <Route
+                  path="*"
                   element={
                     <div className="not-found">
                       <h1>페이지를 찾을 수 없습니다</h1>
                       <Link to="/">홈으로 돌아가기</Link>
                     </div>
-                  } 
+                  }
                 />
               </Routes>
             </ErrorBoundary>

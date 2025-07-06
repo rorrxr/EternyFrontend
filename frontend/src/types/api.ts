@@ -160,9 +160,10 @@ export interface CharacterStats {
 
 // UI 관련 타입
 export interface TierInfo {
+  tier: number
   name: string
   color: string
-  level: number
+  iconUrl: string
 }
 
 export interface GameModeInfo {
@@ -339,4 +340,166 @@ export interface PlayerStatsResponse {
   profile: PlayerProfileData;
   characterStats: CharacterStat[];
   matchHistory: MatchEntry[];
+}
+
+export interface CommonResponse<T> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+// 플레이어 관련 타입
+export interface NicknameDto {
+  userNum: number;
+  nickname: string;
+}
+
+export interface Player {
+  userNum: number;
+  nickname: string;
+  mmr?: number;
+  rank?: number;
+  tier?: string;
+  division?: string;
+  lp?: number;
+  totalGames?: number;
+  totalWins?: number;
+  top1?: number;
+  top2?: number;
+  top3?: number;
+  averageRank?: number;
+  averageKills?: number;
+  averageAssistants?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// 게임 관련 타입
+export interface BserGameDto {
+  gameId: number;
+  userNum: number;
+  nickname: string;
+  seasonId: number;
+  matchingMode: number;
+  matchingTeamMode: number;
+  gameRank: number;
+  characterNum: number;
+  characterName?: string;
+  skinCode: number;
+  playerKill: number;
+  playerAssistant: number;
+  monsterKill: number;
+  bestWeapon: number;
+  bestWeaponName?: string;
+  masteryLevel: { [key: string]: number };
+  equipment: { [key: string]: number };
+  versionMajor: number;
+  versionMinor: number;
+  language: string;
+  startDtm: string;
+  duration: number;
+  mmrGain?: number;
+  mmrBefore?: number;
+  mmrAfter?: number;
+  teamMode: number;
+  teamKill?: number;
+  teamRank?: number;
+  escapeState?: number;
+  tacticalSkillGroup?: number;
+  tacticalSkillLevel?: number;
+}
+
+export interface BserGameDetailDto {
+  gameId: number;
+  userNum: number;
+  nickname: string;
+  gameRank: number;
+  characterNum: number;
+  characterName?: string;
+  skinCode: number;
+  playerKill: number;
+  playerAssistant: number;
+  monsterKill: number;
+  bestWeapon: number;
+  bestWeaponName?: string;
+  equipment: { [key: string]: number };
+  teamKill?: number;
+  teamRank?: number;
+}
+
+// 랭크 관련 타입
+export interface BserRankDto {
+  userNum: number;
+  nickname: string;
+  seasonId: number;
+  matchingMode: number;
+  matchingTeamMode: number;
+  mmr: number;
+  rank: number;
+  rankPercent: number;
+  kda: number;
+  averageRank: number;
+  averageKills: number;
+  averageAssistants: number;
+  top1: number;
+  top2: number;
+  top3: number;
+  top5?: number;
+  top7?: number;
+  games: number;
+  wins: number;
+  winRate: number;
+}
+
+export interface BserTopRankDto {
+  userNum: number;
+  nickname: string;
+  seasonId: number;
+  matchingMode: number;
+  matchingTeamMode: number;
+  mmr: number;
+  rank: number;
+}
+
+// 통계 관련 타입
+export interface BserUserDetailDto {
+  userNum: number;
+  seasonId: number;
+  matchingMode: number;
+  matchingTeamMode: number;
+  mmr: number;
+  nickname: string;
+  rank: number;
+  rankPercent: number;
+  kda: number;
+  averageRank: number;
+  averageKills: number;
+  averageAssistants: number;
+  top1: number;
+  top2: number;
+  top3: number;
+  top5?: number;
+  top7?: number;
+  games: number;
+  wins: number;
+  winRate: number;
+  playTime: number;
+}
+
+export interface BserCharacterStatsDto {
+  userNum: number;
+  seasonId: number;
+  characterNum: number;
+  characterName?: string;
+  totalGames: number;
+  wins: number;
+  top3: number;
+  averageRank: number;
+  averageKills: number;
+  averageAssistants: number;
+  maxKillings: number;
+  winRate: number;
+  top3Rate: number;
+  kda: number;
+  playTime: number;
 }

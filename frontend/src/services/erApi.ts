@@ -5,6 +5,12 @@ import {
   CharacterStat,
   MatchEntry
 } from '../types/api';
+import { fetchTopRankers as fetchTopRankersFromSpring } from './springApi';
+
+// 스프링부트 API를 사용하는 Top Rankers 함수
+export async function fetchTopRankers(seasonId: number, teamMode: number) {
+  return fetchTopRankersFromSpring(seasonId, teamMode);
+}
 
 export async function fetchPlayerStats(nickname: string): Promise<PlayerStatsResponse> {
   // 1) BSER 닉네임 검색

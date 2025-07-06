@@ -10,6 +10,7 @@ import type {
   GameMode,
   QueryConfig 
 } from '../types/api'
+import { apiService } from '@/services/api'
 
 // 쿼리 키 팩토리
 export const queryKeys = {
@@ -29,99 +30,69 @@ export const queryKeys = {
   gameModes: () => ['gameModes'] as const,
 } as const
 
-// 사용자 검색 훅
-export function useSearchUser(nickname: string, options?: QueryConfig) {
+// 플레이어 전적 검색 (기존 방식)
+export const usePlayerStats = (nickname: string, enabled = true) => {
   return useQuery({
-    queryKey: queryKeys.user(nickname),
-    queryFn: () => api.user.search(nickname),
-    enabled: !!nickname && nickname.length >= 2 && (options?.enabled ?? true),
-    staleTime: config.cache.userStaleTime,
-    retry: (failureCount, error) => {
-      // 404 에러는 재시도하지 않음
-      if (error instanceof ApiError && error.status === 404) {
-        return false
-      }
-      return failureCount < 2
-    },
-    ...options,
-  })
-}
+    queryKey: ['playerStats', nickname],
+    queryFn: () => apiService.getPlayerStats(nickname),
+    enabled: enabled && !!nickname.trim(),
+    staleTime: 5 * 60 * 1000, // 5분
+    retry: 1,
+  });
+};
 
-// 사용자 통계 훅
-export function useUserStats(
-  userNum: number, 
-  seasonId = config.game.defaultSeasonId, 
-  teamMode = config.game.teamModes.squad,
-  options?: QueryConfig
-) {
+// 사용자 검색 (실제 API)
+export const useSearchUser = (nickname: string, enabled = true) => {
   return useQuery({
-    queryKey: queryKeys.userStats(userNum, seasonId, teamMode),
-    queryFn: () => api.user.getStats(userNum, seasonId, teamMode),
-    enabled: !!userNum && userNum > 0 && (options?.enabled ?? true),
-    staleTime: config.cache.userStaleTime,
-    ...options,
-  })
-}
+    queryKey: ['searchUser', nickname],
+    queryFn: () => apiService.searchUser(nickname),
+    enabled: enabled && !!nickname.trim(),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+};
 
-// 사용자 게임 기록 훅
-export function useUserGames(userNum: number, next?: number, options?: QueryConfig) {
+// 사용자 통계
+export const useUserStats = (userNum: number, seasonId: number, teamMode: number, enabled = true) => {
   return useQuery({
-    queryKey: queryKeys.userGames(userNum, next),
-    queryFn: () => api.user.getGames(userNum, next),
-    enabled: !!userNum && userNum > 0 && (options?.enabled ?? true),
-    staleTime: config.cache.userStaleTime,
-    ...options,
-  })
-}
+    queryKey: ['userStats', userNum, seasonId, teamMode],
+    queryFn: () => apiService.getUserStats(userNum, seasonId, teamMode),
+    enabled: enabled && !!userNum,
+    staleTime: 2 * 60 * 1000,
+    retry: 1,
+  });
+};
 
-// 무한 스크롤을 위한 사용자 게임 기록 훅
-export function useInfiniteUserGames(userNum: number, options?: QueryConfig) {
+// 사용자 게임 기록
+export const useUserGames = (userNum: number, enabled = true) => {
   return useQuery({
-    queryKey: ['userGames', userNum, 'infinite'],
-    queryFn: async () => {
-      const games: UserGame[] = []
-      let next: number | undefined = undefined
-      let hasMore = true
-      
-      // 처음 3페이지만 가져오기
-      for (let i = 0; i < 3 && hasMore; i++) {
-        const result = await api.user.getGames(userNum, next)
-        games.push(...result.userGames)
-        next = result.next
-        hasMore = result.userGames.length > 0
-      }
-      
-      return { games, next, hasMore }
-    },
-    enabled: !!userNum && userNum > 0 && (options?.enabled ?? true),
-    staleTime: config.cache.userStaleTime,
-    ...options,
-  })
-}
+    queryKey: ['userGames', userNum],
+    queryFn: () => apiService.getUserGames(userNum),
+    enabled: enabled && !!userNum,
+    staleTime: 1 * 60 * 1000,
+    retry: 1,
+  });
+};
 
-// 랭킹 정보 훅
-export function useRanking(
-  seasonId = config.game.defaultSeasonId, 
-  teamMode = config.game.teamModes.squad,
-  options?: QueryConfig
-) {
+// 랭킹 데이터
+export const useRanking = (seasonId: number, teamMode: number) => {
   return useQuery({
-    queryKey: queryKeys.ranking(seasonId, teamMode),
-    queryFn: () => api.ranking.get(seasonId, teamMode),
-    staleTime: config.cache.rankingStaleTime,
-    ...options,
-  })
-}
+    queryKey: ['ranking', seasonId, teamMode],
+    queryFn: () => apiService.getRanking(seasonId, teamMode),
+    staleTime: 10 * 60 * 1000, // 10분
+    retry: 1,
+  });
+};
 
-// 캐릭터 정보 훅
-export function useCharacters(options?: QueryConfig) {
+// 캐릭터 목록
+export const useCharacters = () => {
   return useQuery({
-    queryKey: queryKeys.characters(),
-    queryFn: api.metadata.characters,
-    staleTime: config.cache.metadataStaleTime,
-    ...options,
-  })
-}
+    queryKey: ['characters'],
+    queryFn: () => apiService.getCharacters(),
+    staleTime: 60 * 60 * 1000, // 1시간
+    retry: 1,
+  });
+};
 
 // 게임 모드 정보 훅
 export function useGameModes(options?: QueryConfig) {

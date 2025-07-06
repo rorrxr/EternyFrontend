@@ -1,161 +1,128 @@
 import axios from 'axios';
+import { 
+  User, 
+  UserStats, 
+  UserGame, 
+  RankData, 
+  Character, 
+  PlayerStatsResponse 
+} from '@/types/api';
+import { API_ENDPOINTS } from '@/utils/constants';
 
-// Spring Boot 프록시 URL
-const BASE_URL = 'http://localhost:8080/api/bser';
-console.log('Using Spring Boot proxy server at:', BASE_URL);
+// 백엔드 API (localhost:8080)
+const api = axios.create({
+  baseURL: 'http://localhost:8080/api/v1',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-const api = axios.create({ baseURL: BASE_URL });
-
-interface CommonResponse<T> {
-  code: number;
-  message: string;
-  status: number;
-  data: T;
-}
-
-export interface NicknameData {
-  userNum: number;
-  nickname: string;
-}
-
-export interface BserGameDto {
-  userNum: number;
-  serverCode: number;
-  mmr: number;
-  serverRank: number;
-  nickname: string;
-  rank: number;
-}
-
-export interface BserRankDto {
-  userNum: number;
-  serverCode: number;
-  mmr: number;
-  serverRank: number;
-  nickname: string;
-  rank: number;
-}
-
-export interface UserRankData {
-  userNum: number;
-  serverCode: number;
-  mmr: number;
-  serverRank: number;
-  nickname: string;
-  rank: number;
-}
-
-// 1) 닉네임 검색
-export const searchUser = async (nickname: string): Promise<NicknameData[]> => {
-  const { data: res } = await api.get<CommonResponse<NicknameData[]>>(
-    `/user/nickname?query=${encodeURIComponent(nickname)}`
-  );
-  console.log('Search response:', res);
-  if (res.code !== 200) {
-    throw new Error(res.message || '유저를 찾을 수 없습니다.');
+// 응답 인터셉터로 에러 처리
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error);
+    return Promise.reject(error);
   }
-  return res.data ?? [];
-};
+);
 
-/** 백엔드 프록시로 게임 전적만 가져오기 */
-export const getBserGames = async (userNum: number): Promise<BserGameDto[]> => {
-  const { data: res } = await api.get<CommonResponse<BserGameDto[]>>(`/games/${userNum}`);
-  if (res.code !== 200) throw new Error(res.message);
-  return res.data;
-};
-
-// 3) 랭크 정보 조회
-export const getBserRank = async (
-  userNum: number,
-  seasonId = 31,
-  mode = 3
-): Promise<BserRankDto> => {
-  const { data: res } = await api.get<CommonResponse<BserRankDto>>(
-    `/rank/${userNum}/${seasonId}/${mode}`
-  );
-  if (res.code !== 200) throw new Error(res.message);
-  return res.data;
-};
-
-export interface UserStats {
-  userNum: number;
-  nickname: string;
-  rank?: number;
-  mmr: number;
-  totalGames: number;
-  wins: number;
-  averageRank: number;
-  averageKills: number;
-  averageAssistants: number;
-}
-export interface MatchDetail {
-  gameId: number;
-  userNum: number;
-  characterNum: number;
-  characterLevel: number;
-  gameRank: number;
-  playerKill: number;
-  playerAssistant: number;
-  monsterKill: number;
-  bestWeapon: number;
-  bestWeaponLevel: number;
-  equipment: Record<string, number>;
-  startDtm: string;
-  duration: number;
-  mmrBefore: number;
-  mmrGain: number;
-  mmrAfter: number;
-}
-export interface StatsResponse {
-  summary: UserStats;
-  matches: MatchDetail[];
-}
-
-export const getUserStats = async (userNum: number): Promise<StatsResponse> => {
-  const res = await api.get<any>(`/user/games/${userNum}`);
-  console.log('Stats response:', res.data);
-  if (res.data.code !== 200) {
-    throw new Error(res.data.message || '전적 정보를 불러올 수 없습니다.');
+// 1. 닉네임 → userNum 조회
+export const searchPlayer = async (nickname: string) => {
+  try {
+    const response = await api.get(`/players/search?nickname=${encodeURIComponent(nickname)}`);
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error searching player:', error);
+    return [];
   }
-
-  const games = res.data.userGames as any[];
-  const matches: MatchDetail[] = games.map(g => ({
-    gameId: g.gameId,
-    userNum: g.userNum,
-    characterNum: g.characterNum,
-    characterLevel: g.characterLevel,
-    gameRank: g.gameRank,
-    playerKill: g.playerKill,
-    playerAssistant: g.playerAssistant,
-    monsterKill: g.monsterKill,
-    bestWeapon: g.bestWeapon,
-    bestWeaponLevel: g.bestWeaponLevel,
-    equipment: g.equipment,
-    startDtm: g.startDtm,
-    duration: g.duration,
-    mmrBefore: g.mmrBefore,
-    mmrGain: g.mmrGain,
-    mmrAfter: g.mmrAfter,
-  }));
-
-  const totalGames = games.length;
-  const wins = games.filter(g => g.gameRank === 1).length;
-  const sorted = [...games].sort((a,b) => new Date(b.startDtm).getTime() - new Date(a.startDtm).getTime());
-  const currentMmr = sorted[0]?.mmrAfter ?? 0;
-  const avgKills = totalGames ? games.reduce((s,g)=>s+g.playerKill,0)/totalGames : 0;
-  const avgAssts = totalGames ? games.reduce((s,g)=>s+g.playerAssistant,0)/totalGames : 0;
-  const avgRank = totalGames ? games.reduce((s,g)=>s+g.gameRank,0)/totalGames : 0;
-
-  const summary: UserStats = {
-    userNum,
-    nickname: games[0]?.nickname || '',
-    mmr: currentMmr,
-    totalGames,
-    wins,
-    averageKills: avgKills,
-    averageAssistants: avgAssts,
-    averageRank: avgRank,
-  };
-
-  return { summary, matches };
 };
+
+// 2. 유저 시즌 통계 조회 (V1)
+export const getUserStats = async (userNum: number, seasonId: number) => {
+  try {
+    const response = await api.get(`/stats/user/${userNum}/${seasonId}`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    return null;
+  }
+};
+
+// 3. 유저 캐릭터별 통계 조회 (V1)
+export const getUserCharacterStats = async (userNum: number, seasonId: number) => {
+  try {
+    const response = await api.get(`/stats/user/${userNum}/${seasonId}/characters`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching user character stats:', error);
+    return null;
+  }
+};
+
+// 4. 유저 최근 전적 조회
+export const getPlayerMatches = async (userNum: number) => {
+  try {
+    const response = await api.get(`/players/${userNum}/matches`);
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching player matches:', error);
+    return [];
+  }
+};
+
+// 5. 랭킹 목록 조회 (내부 DB)
+export const getRanking = async (page: number = 0, size: number = 30) => {
+  try {
+    const response = await api.get(`/ranking?page=${page}&size=${size}`);
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching ranking:', error);
+    return [];
+  }
+};
+
+// 6. 유저 개별 랭크 조회
+export const getUserRank = async (userNum: number, seasonId: number, mode: number) => {
+  try {
+    const response = await api.get(`/bser/rank/${userNum}/${seasonId}/${mode}`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching user rank:', error);
+    return null;
+  }
+};
+
+// 7. BSER 닉네임 검색 (하위호환)
+export const searchPlayerBSER = async (nickname: string) => {
+  try {
+    const response = await api.get(`/bser/user/nickname?query=${encodeURIComponent(nickname)}`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Error searching player BSER:', error);
+    return null;
+  }
+};
+
+// 8. BSER 전적 조회 (하위호환)
+export const getPlayerGamesBSER = async (userNum: number) => {
+  try {
+    const response = await api.get(`/bser/games/${userNum}`);
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching player games BSER:', error);
+    return [];
+  }
+};
+
+// 9. 게임 상세 정보 (현재 null 반환 중)
+export const getMatchDetail = async (gameId: number) => {
+  try {
+    const response = await api.get(`/matches/${gameId}`);
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching match detail:', error);
+    return null;
+  }
+};
+
+export default api;

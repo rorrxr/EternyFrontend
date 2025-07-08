@@ -44,8 +44,8 @@ class ApiService {
   async getPlayerDetail(userNum: number): Promise<CommonResponse<Player>> {
     try {
       const response = await fetch(`${API_BASE_URL}/players/${userNum}`);
-      
-      if (!response.ok) {
+
+    if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
@@ -220,7 +220,7 @@ class ApiService {
         })).sort((a: any, b: any) => b.totalGames - a.totalGames)
       );
     }
-
+    
     return {
       player: playerResponse.data,
       stats: statsResponse?.data,

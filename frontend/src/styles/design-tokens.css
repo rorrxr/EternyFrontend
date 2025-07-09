@@ -3,10 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --eterny-primary: #3b82f6;
-  --eterny-primary-dark: #1d4ed8;
-  --eterny-secondary: #8b5cf6;
-  --eterny-accent: #06b6d4;
+  /* Eterny 브랜드 컬러 */
+  --eterny-primary: #3b82f6;      /* blue-500 */
+  --eterny-primary-dark: #1d4ed8; /* blue-700 */
+  --eterny-secondary: #8b5cf6;    /* violet-500 */
+  --eterny-accent: #06b6d4;       /* cyan-500 */
+  
+  /* 게임 티어 컬러 */
   --tier-iron: #8d7053;
   --tier-bronze: #cd7f32;
   --tier-silver: #c0c0c0;
@@ -16,9 +19,44 @@
   --tier-mythril: #ff6b9d;
   --tier-titan: #ff4757;
   --tier-immortal: #ff3838;
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
+  
+  /* 다크 모드 */
+  --bg-primary: #0f172a;         /* slate-900 */
+  --bg-secondary: #1e293b;       /* slate-800 */
+  --bg-tertiary: #334155;        /* slate-700 */
+  --text-primary: #f8fafc;       /* slate-50 */
+  --text-secondary: #cbd5e1;     /* slate-300 */
+}
+
+/* 커스텀 컴포넌트 클래스 */
+@layer components {
+  .btn-primary {
+    @apply bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .card {
+    @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6;
+  }
+  
+  .card-compact {
+    @apply bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4;
+  }
+  
+  .input-primary {
+    @apply w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white placeholder-gray-400 dark:placeholder-slate-400;
+  }
+  
+  .tier-iron { @apply text-yellow-600 bg-yellow-50 border-yellow-200; }
+  .tier-bronze { @apply text-orange-600 bg-orange-50 border-orange-200; }
+  .tier-silver { @apply text-gray-600 bg-gray-50 border-gray-200; }
+  .tier-gold { @apply text-yellow-500 bg-yellow-50 border-yellow-200; }
+  .tier-platinum { @apply text-emerald-600 bg-emerald-50 border-emerald-200; }
+  .tier-diamond { @apply text-blue-600 bg-blue-50 border-blue-200; }
+  .tier-mythril { @apply text-pink-600 bg-pink-50 border-pink-200; }
+  .tier-titan { @apply text-red-600 bg-red-50 border-red-200; }
+  .tier-immortal { @apply text-purple-600 bg-purple-50 border-purple-200; }
 } 

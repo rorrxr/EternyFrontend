@@ -1,5 +1,5 @@
 // API 관련 상수
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 export const CURRENT_SEASON_ID = 25; // 현재 시즌 ID
 
 // 티어 정보
@@ -59,27 +59,31 @@ export const CHARACTERS = {
   20: { name: "레녹스", engName: "Lenox" },
 } as const;
 
-// API 엔드포인트
-export const API_ENDPOINTS = {
-  // BSER API (기존)
-  BASE_URL: import.meta.env.VITE_ER_API_URL || 'https://open-api.bser.io',
-  SEARCH_USER: '/v1/user/nickname',
-  USER_STATS: '/v1/user/stats',
-  USER_GAMES: '/v1/user/games',
-  RANKING: '/v1/rank',
-  CHARACTERS: '/v1/data/Character',
-  GAME_MODES: '/v1/data/GameMode',
-  
-  // 스프링부트 백엔드 API
-  SPRING_BASE_URL: import.meta.env.VITE_SPRING_API_URL || 'http://localhost:8080',
-  SPRING_SEARCH_USER: '/api/v1/players/search',
-  SPRING_PLAYER_DETAIL: '/api/v1/players',
-  SPRING_PLAYER_MATCHES: '/api/v1/players',
-  SPRING_RANKING: '/api/v1/ranking',
-  SPRING_TOP_RANKING: '/api/v1/ranking/top',
-  SPRING_MATCH_DETAIL: '/api/v1/matches',
-  SPRING_USER_STATS: '/api/v1/stats/user',
-} as const;
+// API 엔드포인트 설정
+export const EXTERNAL_API_CONFIG = {
+  // 이터널 리턴 공식 API
+  BSER: {
+    BASE_URL: import.meta.env.VITE_ER_API_URL || 'https://open-api.bser.io',
+    SEARCH_USER: '/v1/user/nickname',
+    USER_STATS: '/v1/user/stats',
+    USER_GAMES: '/v1/user/games',
+    RANKING: '/v1/rank',
+    CHARACTERS: '/v1/data/Character',
+    GAME_MODES: '/v1/data/GameMode',
+  },
+
+  // 백엔드 서버 API
+  SPRING: {
+    BASE_URL: import.meta.env.VITE_SPRING_API_URL || 'http://localhost:8080',
+    SPRING_SEARCH_USER: '/api/v1/players/search',
+    SPRING_PLAYER_DETAIL: '/api/v1/players',
+    SPRING_PLAYER_MATCHES: '/api/v1/players',
+    SPRING_RANKING: '/api/v1/ranking',
+    SPRING_TOP_RANKING: '/api/v1/ranking/top',
+    SPRING_MATCH_DETAIL: '/api/v1/matches',
+    SPRING_USER_STATS: '/api/v1/stats/user',
+  }
+};
 
 // 페이지네이션
 export const PAGE_SIZE = 50;

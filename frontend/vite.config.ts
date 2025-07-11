@@ -1,17 +1,26 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
+import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": resolve(__dirname, "./src"),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   server: {
     port: 3000,
-    strictPort: true, // 포트가 사용 중이어도 다른 포트로 변경하지 않음
+    strictPort: true,
+    host: true, // 외부 접속 허용
+    cors: true, // CORS 활성화
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   build: {
     outDir: 'dist',

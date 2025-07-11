@@ -1,30 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SearchBar } from '../components/ui/SearchBar';
+import { EnhancedSearchBar } from '../components/EnhancedSearchBar';
 import { PlayerCard } from '../components/player/PlayerCard';
-import { LoadingSpinner } from '../components/layout/LoadingStates';
-import { ErrorBoundary } from '../components/common/ErrorBoundary';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { PopularSearches } from '../components/PopularSearches';
 import { usePlayerSearch } from '../hooks/usePlayerSearch';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import { PlayerSearchResult } from '../types/player';
-
-// 인기 검색어 컴포넌트
-const PopularSearches: React.FC<{ onSearchTermClick: (term: string) => void }> = ({ onSearchTermClick }) => (
-  <div className="text-center py-12">
-    <h3 className="text-xl font-semibold text-white mb-6">인기 검색어</h3>
-    <div className="flex flex-wrap justify-center gap-3">
-      {['Faker', 'Hide on bush', 'Dopa', 'Canyon'].map((term) => (
-        <button
-          key={term}
-          onClick={() => onSearchTermClick(term)}
-          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-full transition-colors"
-        >
-          {term}
-        </button>
-      ))}
-    </div>
-  </div>
-);
 
 export const SearchPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,26 +25,42 @@ export const SearchPage: React.FC = () => {
     selectPlayerError
   } = usePlayerSearch();
 
-  // 플레이어 선택 처리 (로그에서 본 문제 해결)
+  // 플레이어 선택 처리 (로그 문제 해결 - 더 강화된 에러 처리)
   const handlePlayerSelect = useCallback(async (player: PlayerSearchResult) => {
     try {
       setSelectedPlayer(player);
       
+      console.log('플레이어 선택 시작:', player.nickname, player.userNum);
+      
       // 플레이어 선택 시 상세 정보 미리 로드
       await selectPlayer(player);
+      
+      console.log('플레이어 선택 성공, 페이지 이동 중...');
       
       // 성공 시 상세 페이지로 이동
       navigate(`/player/${player.userNum}`);
     } catch (error) {
-      // 에러 발생 시에도 페이지는 이동 (외부 API에서 데이터 구성 시도)
+      // 로그 문제 해결: 에러 발생 시에도 페이지는 이동 (외부 API에서 데이터 구성 시도)
+      console.warn('플레이어 선택 중 에러 발생, 외부 API 폴백으로 페이지 이동:', error);
       handleError('playerSelect', error);
+      
+      // 에러가 발생해도 페이지 이동 - PlayerDetailPage에서 외부 API 폴백 처리
       navigate(`/player/${player.userNum}`);
+    } finally {
+      setSelectedPlayer(null);
     }
   }, [selectPlayer, navigate, handleError]);
 
   const handleSearch = useCallback((term: string) => {
+    console.log('검색 시작:', term);
     searchPlayer(term);
   }, [searchPlayer]);
+
+  // 인기 검색어 클릭 처리
+  const handlePopularSearch = useCallback((term: string) => {
+    console.log('인기 검색어 클릭:', term);
+    handleSearch(term);
+  }, [handleSearch]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
@@ -77,12 +76,13 @@ export const SearchPage: React.FC = () => {
               이터널리턴 플레이어의 전적과 통계를 확인해보세요
             </p>
             
-            {/* 메인 검색바 */}
+            {/* 메인 검색바 - Enhanced 버전 사용 */}
             <div className="max-w-2xl mx-auto">
-              <SearchBar
+              <EnhancedSearchBar
                 onSearch={handleSearch}
-                isLoading={isSearching}
                 placeholder="플레이어 닉네임을 입력하세요"
+                showSuggestions={true}
+                showHistory={true}
               />
             </div>
           </div>
@@ -104,10 +104,25 @@ export const SearchPage: React.FC = () => {
           {searchError && (
             <div className="text-center py-12">
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 max-w-md mx-auto">
-                <p className="text-red-600 dark:text-red-400">
-                  검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.
+                <p className="text-red-600 dark:text-red-400 mb-3">
+                  검색 중 오류가 발생했습니다.
                 </p>
+                <button 
+                  onClick={() => handleSearch(searchTerm)}
+                  className="btn-primary"
+                >
+                  다시 시도
+                </button>
               </div>
+            </div>
+          )}
+
+          {/* 플레이어 선택 에러 */}
+          {selectPlayerError && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 mb-6">
+              <p className="text-yellow-600 dark:text-yellow-400 text-sm">
+                플레이어 정보 로드 중 오류가 발생했지만 페이지로 이동합니다. 상세 페이지에서 외부 API를 통해 데이터를 구성합니다.
+              </p>
             </div>
           )}
 
@@ -125,6 +140,7 @@ export const SearchPage: React.FC = () => {
                       player={player}
                       onSelect={handlePlayerSelect}
                       isSelected={selectedPlayer?.userNum === player.userNum}
+                      variant="detailed"
                     />
                     
                     {/* 선택 중 로딩 오버레이 */}
@@ -149,8 +165,11 @@ export const SearchPage: React.FC = () => {
                 <h3 className="text-xl font-semibold text-white mb-2">
                   검색 결과가 없습니다
                 </h3>
-                <p className="text-slate-400">
+                <p className="text-slate-400 mb-4">
                   '{searchTerm}'에 대한 플레이어를 찾을 수 없습니다.
+                </p>
+                <p className="text-slate-500 text-sm">
+                  정확한 닉네임으로 다시 검색해보세요.
                 </p>
               </div>
             </div>
@@ -158,7 +177,7 @@ export const SearchPage: React.FC = () => {
 
           {/* 인기 검색어 (검색 전 상태) */}
           {!searchTerm && (
-            <PopularSearches onSearchTermClick={handleSearch} />
+            <PopularSearches onSearchTermClick={handlePopularSearch} />
           )}
         </ErrorBoundary>
       </div>

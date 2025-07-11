@@ -12,6 +12,7 @@ export class PlayerService {
       return [];
     }
   }
+
   static async getPlayerDetail(userNum: number): Promise<PlayerDetail | null> {
     try {
       const response = await apiClient.get<CommonResponse<PlayerDetail>>(`/api/v1/players/${userNum}`);
@@ -26,6 +27,7 @@ export class PlayerService {
       return null;
     }
   }
+
   static async getPlayerMatches(userNum: number): Promise<PlayerMatches> {
     try {
       const response = await apiClient.get<CommonResponse<PlayerMatches>>(`/api/v1/players/${userNum}/matches`);
@@ -35,6 +37,7 @@ export class PlayerService {
       return { matches: [], totalCount: 0 };
     }
   }
+
   static async getPlayerRank(userNum: number, season: number, teamMode: number): Promise<PlayerRank | null> {
     try {
       const response = await apiClient.get<CommonResponse<PlayerRank>>(`/api/v1/bser/rank/${userNum}/${season}/${teamMode}`);
@@ -44,6 +47,7 @@ export class PlayerService {
       return null;
     }
   }
+
   private static async fetchAndCreatePlayer(userNum: number): Promise<PlayerDetail | null> {
     try {
       const [matchesResponse, rankResponse] = await Promise.allSettled([
@@ -61,6 +65,7 @@ export class PlayerService {
       return null;
     }
   }
+
   private static constructPlayerFromExternalData(
     userNum: number, 
     matches: PlayerMatches, 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, AlertTriangle, ExternalLink, Clock } from 'lucide-react';
+import { ArrowLeft, RefreshCw, AlertTriangle, ExternalLink, Clock, Wifi, WifiOff, Info } from 'lucide-react';
 import { EnhancedPlayerProfile } from '../components/EnhancedPlayerProfile';
 import { MatchHistory } from '../components/player/MatchHistory';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -16,6 +16,7 @@ export const PlayerDetailPage: React.FC = () => {
   const [isExternalFetch, setIsExternalFetch] = useState(false);
   const [externalPlayerData, setExternalPlayerData] = useState<PlayerDetail | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+  const [dataSource, setDataSource] = useState<'internal' | 'external' | 'mixed'>('internal');
 
   const playerNumeric = userNum ? parseInt(userNum, 10) : null;
   
@@ -34,6 +35,7 @@ export const PlayerDetailPage: React.FC = () => {
       if (error && playerNumeric && retryCount < 3 && !isExternalFetch) {
         console.log(`플레이어 정보 없음 (시도 ${retryCount + 1}/3), 외부 API로 데이터 구성 시도`);
         setIsExternalFetch(true);
+        setDataSource('external');
         
         try {
           const externalPlayer = await EnhancedPlayerService.getPlayerDetailWithFallback(playerNumeric);
@@ -42,14 +44,15 @@ export const PlayerDetailPage: React.FC = () => {
             setExternalPlayerData(externalPlayer);
             setLastUpdateTime(new Date());
             setRetryCount(prev => prev + 1);
+            setDataSource('external');
             
             // 외부 데이터가 있으면 리페치는 하지 않음 (무한 루프 방지)
           } else {
             console.warn('외부 API에서도 플레이어 데이터를 찾을 수 없음');
             setRetryCount(prev => prev + 1);
           }
-        } catch (error) {
-          console.error('외부 API 폴백 실패:', error);
+        } catch (fetchError) {
+          console.error('외부 API 페치 실패:', fetchError);
           setRetryCount(prev => prev + 1);
         } finally {
           setIsExternalFetch(false);
@@ -57,24 +60,14 @@ export const PlayerDetailPage: React.FC = () => {
       }
     };
 
-    // 외부 데이터가 이미 있으면 폴백 시도하지 않음
-    if (!externalPlayerData) {
-      handlePlayerNotFound();
-    }
-  }, [error, playerNumeric, retryCount, isExternalFetch, externalPlayerData]);
+    handlePlayerNotFound();
+  }, [error, playerNumeric, retryCount, isExternalFetch]);
 
-  const handleRefresh = useCallback(() => {
-    console.log('수동 새로고침 시작');
-    setRetryCount(0);
-    setExternalPlayerData(null);
-    setLastUpdateTime(null);
-    refetch();
-  }, [refetch]);
-
+  // 🔄 강제 외부 페치 기능 (사용자 요청)
   const handleForceExternalFetch = useCallback(async () => {
-    if (!playerNumeric) return;
+    if (!playerNumeric || isExternalFetch) return;
     
-    console.log('강제 외부 API 페치 시작');
+    console.log('사용자 요청으로 강제 외부 데이터 페치 시작');
     setIsExternalFetch(true);
     
     try {
@@ -82,22 +75,57 @@ export const PlayerDetailPage: React.FC = () => {
       if (externalPlayer) {
         setExternalPlayerData(externalPlayer);
         setLastUpdateTime(new Date());
-        console.log('강제 외부 API 페치 성공');
+        setDataSource('external');
+        console.log('강제 외부 페치 성공');
       }
     } catch (error) {
-      console.error('강제 외부 API 페치 실패:', error);
+      console.error('강제 외부 페치 실패:', error);
     } finally {
       setIsExternalFetch(false);
     }
-  }, [playerNumeric]);
+  }, [playerNumeric, isExternalFetch]);
 
   const handleBack = useCallback(() => {
     navigate(-1);
   }, [navigate]);
 
-  // 현재 표시할 플레이어 데이터 결정
-  const currentPlayerData = player || externalPlayerData;
+  const handleRefresh = useCallback(async () => {
+    console.log('페이지 새로고침 시작');
+    setExternalPlayerData(null);
+    setLastUpdateTime(null);
+    setRetryCount(0);
+    setDataSource('internal');
+    await refetch();
+  }, [refetch]);
+
+  // 🎯 실제 표시할 플레이어 데이터 결정
+  const displayPlayer = player || externalPlayerData;
   const isShowingExternalData = !player && externalPlayerData;
+  const hasValidData = !!(displayPlayer || matches || rank);
+
+  // 📊 데이터 신뢰성 및 최신성 정보
+  const getDataSourceInfo = () => {
+    if (isShowingExternalData) {
+      return {
+        icon: <Wifi className="h-4 w-4" />,
+        label: '실시간 외부 데이터',
+        color: 'text-cyan-400 bg-cyan-900/20',
+        description: '이터널리턴 공식 API에서 실시간으로 가져온 최신 데이터입니다.',
+        reliability: '높음'
+      };
+    } else if (player) {
+      return {
+        icon: <WifiOff className="h-4 w-4" />,
+        label: '내부 데이터베이스',
+        color: 'text-green-400 bg-green-900/20',
+        description: '서버에 저장된 데이터를 표시하고 있습니다.',
+        reliability: '매우 높음'
+      };
+    }
+    return null;
+  };
+
+  const dataSourceInfo = getDataSourceInfo();
 
   if (!playerNumeric) {
     return (
@@ -132,34 +160,47 @@ export const PlayerDetailPage: React.FC = () => {
               </button>
               
               <div className="flex items-center gap-3">
-                {/* 외부 데이터 표시 중일 때 정보 */}
-                {isShowingExternalData && lastUpdateTime && (
-                  <div className="flex items-center gap-2 text-sm text-cyan-400 bg-cyan-900/20 px-3 py-1 rounded-full">
-                    <ExternalLink className="h-4 w-4" />
-                    <span>실시간 데이터</span>
-                    <Clock className="h-3 w-3" />
-                    <span>{lastUpdateTime.toLocaleTimeString()}</span>
+                {/* 🔔 데이터 소스 알림 (개선된 버전) */}
+                {dataSourceInfo && (
+                  <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border ${dataSourceInfo.color} border-current/20`}>
+                    {dataSourceInfo.icon}
+                    <span className="font-medium">{dataSourceInfo.label}</span>
+                    {lastUpdateTime && (
+                      <>
+                        <Clock className="h-3 w-3 ml-2" />
+                        <span className="text-xs opacity-75">
+                          {lastUpdateTime.toLocaleTimeString()}
+                        </span>
+                      </>
+                    )}
                   </div>
                 )}
                 
                 {/* 강제 외부 페치 버튼 */}
-                {!isShowingExternalData && (
+                {!isShowingExternalData && !isLoading && (
                   <button
                     onClick={handleForceExternalFetch}
                     disabled={isExternalFetch}
-                    className="flex items-center gap-2 text-sm btn-outline disabled:opacity-50"
+                    className="flex items-center gap-2 text-sm btn-outline disabled:opacity-50 hover:bg-cyan-900/20"
+                    title="이터널리턴 공식 API에서 최신 데이터를 가져옵니다"
                   >
-                    <ExternalLink className={`h-4 w-4 ${isExternalFetch ? 'animate-spin' : ''}`} />
-                    실시간 데이터
+                    {isExternalFetch ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4" />
+                    )}
+                    최신 데이터 가져오기
                   </button>
                 )}
                 
+                {/* 새로고침 버튼 */}
                 <button
                   onClick={handleRefresh}
                   disabled={isLoading || isExternalFetch}
-                  className="flex items-center gap-2 btn-secondary disabled:opacity-50"
+                  className="flex items-center gap-2 text-sm btn-outline disabled:opacity-50"
+                  title="페이지를 새로고침합니다"
                 >
-                  <RefreshCw className={`h-5 w-5 ${(isLoading || isExternalFetch) ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                   새로고침
                 </button>
               </div>
@@ -167,114 +208,93 @@ export const PlayerDetailPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* 외부 API 로딩 상태 */}
-          {isExternalFetch && (
-            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-4 mb-6">
-              <div className="flex items-center gap-3">
-                <LoadingSpinner size="sm" />
-                <div>
-                  <p className="font-medium text-blue-900">실시간 데이터 가져오는 중</p>
-                  <p className="text-sm text-blue-700">외부 API에서 최신 정보를 수집하고 있습니다...</p>
+        {/* 📊 데이터 신뢰성 정보 패널 (외부 데이터 사용 시) */}
+        {isShowingExternalData && dataSourceInfo && (
+          <div className="bg-gradient-to-r from-cyan-900/20 to-blue-900/20 border-b border-cyan-800/30">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-cyan-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-cyan-400 mb-1">
+                    실시간 외부 데이터 사용 중
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {dataSourceInfo.description} 
+                    <span className="ml-2 px-2 py-0.5 bg-cyan-900/30 rounded text-cyan-300 font-medium">
+                      신뢰도: {dataSourceInfo.reliability}
+                    </span>
+                  </p>
+                  {lastUpdateTime && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      마지막 업데이트: {lastUpdateTime.toLocaleString()}
+                    </p>
+                  )}
                 </div>
+                <button
+                  onClick={() => setExternalPlayerData(null)}
+                  className="text-xs text-slate-400 hover:text-cyan-400 transition-colors"
+                  title="외부 데이터 표시를 중단합니다"
+                >
+                  닫기
+                </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* 재시도 정보 */}
-          {retryCount > 0 && !currentPlayerData && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-              <p className="text-yellow-800 text-sm">
-                데이터 로드 시도 중... ({retryCount}/3)
-              </p>
-            </div>
-          )}
-
-          {/* 로딩 상태 */}
-          {(isLoading && !currentPlayerData) && (
-            <div className="text-center py-12">
+        {/* 메인 콘텐츠 */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {isLoading && !hasValidData ? (
+            <div className="flex items-center justify-center py-12">
               <LoadingSpinner size="lg" />
-              <p className="text-slate-300 mt-4">플레이어 정보를 불러오는 중...</p>
+              <span className="ml-3 text-slate-300 text-lg">
+                {isExternalFetch ? '외부 API에서 데이터를 가져오는 중...' : '플레이어 정보를 불러오는 중...'}
+              </span>
             </div>
-          )}
-
-          {/* 에러 상태 */}
-          {error && !currentPlayerData && !isLoading && !isExternalFetch && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          ) : error && !hasValidData ? (
+            <div className="text-center py-12">
               <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-red-900 mb-2">
-                플레이어 정보를 불러올 수 없습니다
-              </h3>
-              <p className="text-red-700 mb-4">
-                서버에서 플레이어 데이터를 찾을 수 없거나 일시적인 오류가 발생했습니다.
+              <h2 className="text-xl font-semibold text-white mb-2">데이터를 불러올 수 없습니다</h2>
+              <p className="text-slate-400 mb-6">
+                플레이어 정보를 찾을 수 없거나 일시적인 오류가 발생했습니다.
               </p>
-              <div className="space-x-3">
+              <div className="flex items-center justify-center gap-3">
                 <button onClick={handleRefresh} className="btn-primary">
                   다시 시도
                 </button>
-                <button onClick={handleForceExternalFetch} className="btn-secondary" disabled={isExternalFetch}>
-                  {isExternalFetch ? '가져오는 중...' : '실시간 데이터 시도'}
-                </button>
-                <button onClick={handleBack} className="btn-outline">
-                  돌아가기
+                <button onClick={handleForceExternalFetch} className="btn-outline">
+                  외부 API로 재시도
                 </button>
               </div>
             </div>
-          )}
-
-          {/* 성공 상태 */}
-          {currentPlayerData && (
-            <div className="space-y-6">
-              {/* 외부 데이터 알림 */}
-              {isShowingExternalData && (
-                <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 rounded-xl p-4">
-                  <div className="flex items-center gap-3">
-                    <ExternalLink className="h-5 w-5 text-cyan-600" />
-                    <div>
-                      <p className="font-medium text-cyan-900">실시간 데이터로 표시 중</p>
-                      <p className="text-sm text-cyan-700">
-                        외부 API에서 가져온 최신 정보입니다. 일부 기능이 제한될 수 있습니다.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+          ) : (
+            <div className="space-y-8">
+              {/* 플레이어 프로필 */}
+              {displayPlayer && (
+                <EnhancedPlayerProfile 
+                  playerNum={playerNumeric}
+                  nickname={displayPlayer.nickname}
+                  showMatchHistory={false}
+                />
               )}
-
-              {/* 플레이어 기본 정보 */}
-              <EnhancedPlayerProfile 
-                playerNum={playerNumeric}
-                nickname={currentPlayerData.nickname}
-                showMatchHistory={false}
-              />
-
-
-
+              
               {/* 매치 히스토리 */}
-              {matches && matches.matches.length > 0 && (
-                <div className="card">
-                  <h2 className="text-xl font-bold text-white mb-4">
-                    최근 경기
+              {matches && matches.matches && matches.matches.length > 0 && (
+                <div className="bg-slate-800 rounded-xl p-6">
+                  <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                    <span>매치 히스토리</span>
+                    {isShowingExternalData && (
+                      <span className="text-xs bg-cyan-900/30 text-cyan-300 px-2 py-1 rounded-full">
+                        실시간
+                      </span>
+                    )}
                   </h2>
                   <MatchHistory 
-                    matches={matches.matches}
-                    isLoading={false}
+                    matches={matches.matches} 
+                    characterStats={[]}
+                    isLoading={isLoading}
+                    hasMore={false}
                   />
-                </div>
-              )}
-
-              {/* 매치 히스토리 없을 때 */}
-              {(!matches || matches.matches.length === 0) && !isLoading && (
-                <div className="card text-center py-12">
-                  <div className="text-slate-400">
-                    <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-semibold mb-2">최근 경기 정보가 없습니다</h3>
-                    <p className="text-sm">
-                      {isShowingExternalData 
-                        ? '외부 API에서 경기 기록을 찾을 수 없습니다.' 
-                        : '아직 경기 기록이 없거나 데이터를 불러올 수 없습니다.'
-                      }
-                    </p>
-                  </div>
                 </div>
               )}
             </div>

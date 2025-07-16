@@ -1,22 +1,30 @@
 // components/rank/RankChart.tsx - 랭크 차트 컴포넌트
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { PlayerRank, MmrHistoryPoint } from '../../types/player';
-import { TrendingUp, TrendingDown, Award, Target, BarChart3, Activity, Calendar } from 'lucide-react';
+import { RankService } from '../../services/rankService';
+import { TrendingUp, TrendingDown, Award, Target, BarChart3, Activity, Calendar, Calculator, Zap } from 'lucide-react';
 
 interface RankChartProps {
   rankData: PlayerRank;
   mmrHistory?: MmrHistoryPoint[];
   showMmrChart?: boolean;
   showRankProgress?: boolean;
+  showMmrPrediction?: boolean;
+  playerNum?: number;
 }
 
 export const RankChart: React.FC<RankChartProps> = ({ 
   rankData, 
   mmrHistory = [],
   showMmrChart = true,
-  showRankProgress = true 
+  showRankProgress = true,
+  showMmrPrediction = true,
+  playerNum
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'history' | 'prediction'>('overview');
+  const [predictionTargetWins, setPredictionTargetWins] = useState(10);
+  const [rankPrediction, setRankPrediction] = useState<any>(null);
+  const [isPredicting, setIsPredicting] = useState(false);
 
   const getTierInfo = (tier: string) => {
     const tierMap: Record<string, { color: string; bgColor: string; icon: string; description: string }> = {
@@ -118,6 +126,37 @@ export const RankChart: React.FC<RankChartProps> = ({
     };
   }, [rankData]);
 
+  // 🔮 MMR 예측 실행
+  const handlePredictRank = useCallback(async () => {
+    if (!playerNum || isPredicting) return;
+    
+    setIsPredicting(true);
+    
+    try {
+      const prediction = await RankService.predictRank(
+        playerNum, 
+        22, // 현재 시즌
+        1,  // 솔로 모드
+        predictionTargetWins
+      );
+      
+      setRankPrediction(prediction);
+      console.log('🔮 MMR 예측 결과:', prediction);
+    } catch (error) {
+      console.error('MMR 예측 실패:', error);
+      setRankPrediction(null);
+    } finally {
+      setIsPredicting(false);
+    }
+  }, [playerNum, predictionTargetWins, isPredicting]);
+
+  // 컴포넌트 마운트 시 기본 예측 실행
+  useEffect(() => {
+    if (showMmrPrediction && playerNum && !rankPrediction) {
+      handlePredictRank();
+    }
+  }, [showMmrPrediction, playerNum, rankPrediction, handlePredictRank]);
+
   // 간단한 MMR 차트 렌더링
   const renderMmrChart = () => {
     if (mmrHistory.length < 2) {
@@ -167,6 +206,120 @@ export const RankChart: React.FC<RankChartProps> = ({
     );
   };
 
+  // 🔮 MMR 예측 UI 렌더링
+  const renderMmrPrediction = () => {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h5 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Calculator className="w-5 h-5 text-purple-500" />
+            MMR 예측 시뮬레이터
+          </h5>
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+            <Zap className="w-4 h-4" />
+            AI 예측
+          </div>
+        </div>
+
+        {/* 예측 설정 */}
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+          <div className="flex items-center gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              목표 승리 수:
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPredictionTargetWins(Math.max(1, predictionTargetWins - 5))}
+                className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={predictionTargetWins}
+                onChange={(e) => setPredictionTargetWins(parseInt(e.target.value) || 10)}
+                className="w-16 h-8 text-center text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <button
+                onClick={() => setPredictionTargetWins(Math.min(100, predictionTargetWins + 5))}
+                className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                +
+              </button>
+            </div>
+            <button
+              onClick={handlePredictRank}
+              disabled={isPredicting}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isPredicting ? '예측 중...' : '예측하기'}
+            </button>
+          </div>
+
+          {/* 예측 결과 */}
+          {rankPrediction && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                  #{rankPrediction.predictedRank?.toLocaleString() || 'N/A'}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">예측 랭킹</div>
+              </div>
+              
+              <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                  {rankPrediction.predictedMMR?.toLocaleString() || 'N/A'}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">예측 MMR</div>
+              </div>
+              
+              <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                  +{rankPrediction.mmrNeeded || 0}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">필요 MMR</div>
+              </div>
+              
+              <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-lg">
+                <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                  ~{rankPrediction.estimatedGames || 0}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">예상 게임</div>
+              </div>
+            </div>
+          )}
+
+          {/* 예측 신뢰도 */}
+          {rankPrediction?.confidence && (
+            <div className="mt-3 p-2 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-purple-700 dark:text-purple-300">예측 신뢰도</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-2 bg-purple-200 dark:bg-purple-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-purple-600 transition-all duration-300"
+                      style={{ width: `${rankPrediction.confidence}%` }}
+                    />
+                  </div>
+                  <span className="font-medium text-purple-700 dark:text-purple-300">
+                    {rankPrediction.confidence.toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 설명 */}
+          <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+            💡 이 예측은 현재 MMR, 승률, 최근 성과를 기반으로 한 추정치입니다. 실제 결과와 다를 수 있습니다.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* 탭 네비게이션 */}
@@ -205,6 +358,18 @@ export const RankChart: React.FC<RankChartProps> = ({
             히스토리
           </button>
         )}
+        {showMmrPrediction && playerNum && (
+          <button
+            onClick={() => setActiveTab('prediction')}
+            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'prediction'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            예측
+          </button>
+        )}
       </div>
 
       {/* 탭 콘텐츠 */}
@@ -238,7 +403,7 @@ export const RankChart: React.FC<RankChartProps> = ({
               )}
             </div>
             
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Award className="h-4 w-4 text-blue-500" />
@@ -388,6 +553,10 @@ export const RankChart: React.FC<RankChartProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'prediction' && showMmrPrediction && (
+        renderMmrPrediction()
       )}
     </div>
   );

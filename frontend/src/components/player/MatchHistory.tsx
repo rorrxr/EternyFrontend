@@ -1,286 +1,322 @@
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { MatchFilters } from './MatchFilters';
+import React, { useState, useMemo, useCallback } from 'react';
+import { FixedSizeList as List } from 'react-window';
+// @ts-ignore
+import InfiniteLoader from 'react-window-infinite-loader';
 import { MatchCard } from './MatchCard';
-import { cn } from '@/utils/helpers';
-import { 
-  MatchEntry, 
-  UserGame,
-  CharacterStat 
-} from '@/types/api';
-import { 
-  History, 
-  TrendingUp, 
-  Calendar,
-  BarChart3,
-  ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
+import { MatchFilters } from './MatchFilters';
+import { Match } from '@/types/match';
+import { CharacterStats } from '@/types/player';
 
 interface MatchHistoryProps {
-  matches: (MatchEntry | UserGame)[];
-  characterStats?: CharacterStat[];
+  matches: Match[];
+  characterStats: CharacterStats[];
   isLoading?: boolean;
-  onLoadMore?: () => void;
   hasMore?: boolean;
-  className?: string;
+  onLoadMore?: () => void;
 }
 
-export const MatchHistory: React.FC<MatchHistoryProps> = ({
-  matches = [],
-  characterStats = [],
+export const MatchHistory: React.FC<MatchHistoryProps> = ({ 
+  matches = [], 
+  characterStats = [], 
   isLoading = false,
-  onLoadMore,
   hasMore = false,
-  className
+  onLoadMore
 }) => {
-  const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
-  const [selectedMode, setSelectedMode] = useState('all');
-  const [selectedCharacter, setSelectedCharacter] = useState('all');
-  const [selectedResult, setSelectedResult] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  
-  const MATCHES_PER_PAGE = 20;
+  const [selectedCharacter, setSelectedCharacter] = useState<string>('all');
+  const [selectedGameMode, setSelectedGameMode] = useState<string>('all');
+  const [selectedRank, setSelectedRank] = useState<string>('all');
+  const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
 
-  // 필터링된 매치들
-  const filteredMatches = useMemo(() => {
-    return matches.filter(match => {
-      // 타입 구분
-      const isUserGame = 'gameId' in match;
-      
-      const matchMode = isUserGame ? match.matchingTeamMode.toString() : 
-        (match.mode === '솔로' ? '1' : match.mode === '듀오' ? '2' : '3');
-      
-      const matchCharacter = isUserGame ? match.characterNum.toString() : 
-        match.teams[0]?.players[0]?.characterIcon || '';
-      
-      const matchRank = isUserGame ? match.gameRank : match.teams[0]?.players[0]?.tk || 0;
-      
-      // 모드 필터
-      if (selectedMode !== 'all' && matchMode !== selectedMode) {
+  // 🛡️ 방어적 데이터 검증 및 로깅
+  console.log('🎮 MatchHistory props:', {
+    matches: Array.isArray(matches) ? matches.length : 'not array',
+    characterStats: Array.isArray(characterStats) ? characterStats.length : 'not array',
+    isLoading,
+    hasMore
+  });
+
+  // 🔍 안전한 배열 처리
+  const safeMatches = useMemo(() => {
+    if (!Array.isArray(matches)) {
+      console.warn('MatchHistory: matches가 배열이 아닙니다:', typeof matches);
+      return [];
+    }
+    
+    // null, undefined 요소 필터링
+    const validMatches = matches.filter(match => {
+      if (!match) {
+        console.warn('MatchHistory: null/undefined match found');
         return false;
       }
-      
-      // 캐릭터 필터
-      if (selectedCharacter !== 'all' && matchCharacter !== selectedCharacter) {
-        return false;
-      }
-      
-      // 결과 필터
-      if (selectedResult === 'win' && matchRank > 3) {
-        return false;
-      }
-      if (selectedResult === 'lose' && matchRank <= 3) {
-        return false;
-      }
-      
       return true;
     });
-  }, [matches, selectedMode, selectedCharacter, selectedResult]);
 
-  // 페이지네이션
-  const totalPages = Math.ceil(filteredMatches.length / MATCHES_PER_PAGE);
-  const paginatedMatches = filteredMatches.slice(
-    (currentPage - 1) * MATCHES_PER_PAGE,
-    currentPage * MATCHES_PER_PAGE
-  );
+    console.log('🔍 Filtering matches:', validMatches.length);
+    return validMatches;
+  }, [matches]);
 
-  // 통계 계산
-  const stats = useMemo(() => {
-    if (filteredMatches.length === 0) {
-      return { totalGames: 0, wins: 0, winRate: 0, avgKDA: 0, avgRank: 0 };
+  const safeCharacterStats = useMemo(() => {
+    if (!Array.isArray(characterStats)) {
+      console.warn('MatchHistory: characterStats가 배열이 아닙니다:', typeof characterStats);
+      return [];
+    }
+    return characterStats.filter(stat => stat != null);
+  }, [characterStats]);
+
+  // 📊 필터링된 매치 계산
+  const filteredMatches = useMemo(() => {
+    let filtered = [...safeMatches];
+
+    // 캐릭터 필터
+    if (selectedCharacter !== 'all') {
+      const characterId = parseInt(selectedCharacter);
+      if (!isNaN(characterId)) {
+        filtered = filtered.filter(match => {
+          const matchCharacterId = match?.characterId || 0;
+          return matchCharacterId === characterId;
+        });
+      }
     }
 
-    const totalGames = filteredMatches.length;
-    const wins = filteredMatches.filter(match => {
-      const rank = 'gameId' in match ? match.gameRank : match.teams[0]?.players[0]?.tk || 0;
-      return rank <= 3;
-    }).length;
-    
-    const winRate = (wins / totalGames) * 100;
-    
-    const totalKills = filteredMatches.reduce((sum, match) => {
-      return sum + ('gameId' in match ? match.playerKill : match.teams[0]?.players[0]?.kill || 0);
-    }, 0);
-    
-    const totalAssists = filteredMatches.reduce((sum, match) => {
-      return sum + ('gameId' in match ? match.playerAssistant : match.teams[0]?.players[0]?.assist || 0);
-    }, 0);
-    
-    const totalDeaths = filteredMatches.length; // 이터널 리턴은 게임당 1데스
-    const avgKDA = totalDeaths > 0 ? (totalKills + totalAssists) / totalDeaths : 0;
-    
-    const totalRank = filteredMatches.reduce((sum, match) => {
-      return sum + ('gameId' in match ? match.gameRank : match.teams[0]?.players[0]?.tk || 0);
-    }, 0);
-    const avgRank = totalRank / totalGames;
+    // 게임 모드 필터
+    if (selectedGameMode !== 'all') {
+      filtered = filtered.filter(match => {
+        const gameMode = match?.gameMode || match?.matchingMode?.toString() || '';
+        return gameMode === selectedGameMode;
+      });
+    }
 
-    return { totalGames, wins, winRate, avgKDA, avgRank };
-  }, [filteredMatches]);
+    // 순위 필터
+    if (selectedRank !== 'all') {
+      filtered = filtered.filter(match => {
+        const rank = match?.gameRank || 0;
+        switch (selectedRank) {
+          case 'win':
+            return rank <= 3 && rank > 0;
+          case 'top5':
+            return rank <= 5 && rank > 0;
+          case 'lose':
+            return rank > 5;
+          default:
+            return true;
+        }
+      });
+    }
 
-  const handleToggleExpand = (matchId: string) => {
-    setExpandedMatch(expandedMatch === matchId ? null : matchId);
+    console.log('🎯 Filtered matches result:', {
+      original: safeMatches.length,
+      filtered: filtered.length,
+      filters: { selectedCharacter, selectedGameMode, selectedRank }
+    });
+
+    return filtered;
+  }, [safeMatches, selectedCharacter, selectedGameMode, selectedRank]);
+
+  // 🔄 무한 스크롤을 위한 아이템 로딩 체크
+  const isItemLoaded = useCallback((index: number) => {
+    return index < filteredMatches.length;
+  }, [filteredMatches.length]);
+
+  // 📦 무한 스크롤 더 로드
+  const loadMoreItems = useCallback(async () => {
+    if (hasMore && onLoadMore && !isLoading) {
+      console.log('🔄 Loading more matches...');
+      await onLoadMore();
+    }
+  }, [hasMore, onLoadMore, isLoading]);
+
+  // 🎨 매치 카드 렌더러 (React Window용)
+  const MatchItem = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => {
+    const match = filteredMatches[index];
+    
+    if (!match) {
+      // 로딩 중인 아이템
+      return (
+        <div style={style} className="px-4 py-2">
+          <div className="bg-white rounded-lg p-4 border border-dakGray-200 animate-pulse">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-dakGray-200 rounded-full"></div>
+              <div className="flex-1">
+                <div className="h-4 bg-dakGray-200 rounded w-1/4 mb-2"></div>
+                <div className="h-3 bg-dakGray-200 rounded w-1/2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const matchKey = match?.matchId || `match-${index}`;
+    const isExpanded = expandedMatches.has(matchKey);
+
+    const handleToggleExpand = () => {
+      setExpandedMatches(prev => {
+        const newSet = new Set(prev);
+        if (isExpanded) {
+          newSet.delete(matchKey);
+        } else {
+          newSet.add(matchKey);
+        }
+        return newSet;
+      });
+    };
+
+    return (
+      <div style={style} className="px-4 py-2">
+        <MatchCard 
+          match={match}
+          isExpanded={isExpanded}
+          onToggleExpand={handleToggleExpand}
+          className="transition-all duration-200 hover:scale-[1.01]"
+        />
+      </div>
+    );
+  }, [filteredMatches, expandedMatches]);
+
+  // 필터 핸들러들
+  const handleCharacterChange = (character: string) => {
+    setSelectedCharacter(character);
+  };
+
+  const handleGameModeChange = (gameMode: string) => {
+    setSelectedGameMode(gameMode);
+  };
+
+  const handleRankChange = (rank: string) => {
+    setSelectedRank(rank);
   };
 
   const handleResetFilters = () => {
-    setSelectedMode('all');
     setSelectedCharacter('all');
-    setSelectedResult('all');
-    setCurrentPage(1);
+    setSelectedGameMode('all');
+    setSelectedRank('all');
   };
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    setExpandedMatch(null); // 페이지 변경 시 확장 상태 초기화
-  };
-
-  if (isLoading && matches.length === 0) {
+  // 🎨 로딩 상태 UI
+  if (isLoading && safeMatches.length === 0) {
     return (
-      <Card className={cn("w-full card-tile", className)}>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center h-48">
-            <LoadingSpinner size="lg" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+          <p className="mt-2 text-dakGray-500">매치 기록을 불러오는 중...</p>
+        </div>
+      </div>
     );
   }
 
+  // 🚫 데이터 없음 상태
+  if (safeMatches.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-6xl mb-4">🎮</div>
+        <h3 className="text-xl font-semibold text-dakGray-900 mb-2">매치 기록이 없습니다</h3>
+        <p className="text-dakGray-500">
+          아직 플레이한 게임이 없거나 데이터를 불러올 수 없습니다.
+        </p>
+      </div>
+    );
+  }
+
+  const itemCount = hasMore ? filteredMatches.length + 1 : filteredMatches.length;
+
   return (
-    <div className={cn("w-full space-y-4", className)}>
-      <Card className="card-tile bg-white border-dakGray-200">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-dakGray-900">
-              <History className="h-5 w-5" />
-              경기 기록
-            </CardTitle>
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-dakGray-500" />
-                <span className="text-dakGray-600">
-                  {stats.totalGames}게임 • {stats.winRate.toFixed(1)}% 승률 • {stats.avgKDA.toFixed(2)} 평균 KDA
-                </span>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* 📊 매치 통계 요약 */}
+      <div className="bg-white rounded-lg p-4 border border-dakGray-200">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-bold text-pink-600">{safeMatches.length}</div>
+            <div className="text-sm text-dakGray-500">총 게임</div>
           </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <MatchFilters
-            selectedMode={selectedMode}
-            selectedCharacter={selectedCharacter}
-            selectedResult={selectedResult}
-            onModeChange={setSelectedMode}
-            onCharacterChange={setSelectedCharacter}
-            onResultChange={setSelectedResult}
-            onReset={handleResetFilters}
-          />
-        </CardContent>
-      </Card>
-      <div className="space-y-3">
-        {paginatedMatches.length === 0 ? (
-          <Card className="card-tile bg-white border-dakGray-200">
-            <CardContent className="p-12 text-center">
-              <Calendar className="h-12 w-12 text-dakGray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-dakGray-900 mb-2">
-                경기 기록이 없습니다
-              </h3>
-              <p className="text-dakGray-500">
-                조건에 맞는 경기 기록을 찾을 수 없어요.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          paginatedMatches.map((match, idx) => (
-            <div key={idx} className="card-tile">
-              <MatchCard match={match} />
+          <div>
+            <div className="text-2xl font-bold text-blue-600">
+              {safeMatches.filter(m => (m?.gameRank || 0) <= 3 && (m?.gameRank || 0) > 0).length}
             </div>
-          ))
-        )}
+            <div className="text-sm text-dakGray-500">승리 (1-3등)</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {safeMatches.filter(m => (m?.gameRank || 0) === 1).length}
+            </div>
+            <div className="text-sm text-dakGray-500">1등</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-green-600">
+              {safeMatches.length > 0 
+                ? ((safeMatches.filter(m => (m?.gameRank || 0) <= 3 && (m?.gameRank || 0) > 0).length / safeMatches.length) * 100).toFixed(1)
+                : 0}%
+            </div>
+            <div className="text-sm text-dakGray-500">승률</div>
+          </div>
+        </div>
       </div>
 
-      {/* 페이지네이션 */}
-      {totalPages > 1 && (
-        <Card className="bg-white border-dakGray-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-dakGray-600">
-                {filteredMatches.length}개 중 {((currentPage - 1) * MATCHES_PER_PAGE) + 1}-{Math.min(currentPage * MATCHES_PER_PAGE, filteredMatches.length)}개 표시
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="border-dakGray-200"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const pageNum = currentPage <= 3 ? i + 1 : 
-                      currentPage >= totalPages - 2 ? totalPages - 4 + i :
-                      currentPage - 2 + i;
-                    
-                    if (pageNum < 1 || pageNum > totalPages) return null;
-                    
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={pageNum === currentPage ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => handlePageChange(pageNum)}
-                        className={cn(
-                          "w-8 h-8 p-0",
-                          pageNum === currentPage && "bg-dakBlue-600 text-white hover:bg-dakBlue-700"
-                        )}
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
-                </div>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="border-dakGray-200"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* 🔍 필터 컴포넌트 */}
+      <MatchFilters
+        selectedMode={selectedGameMode}
+        selectedCharacter={selectedCharacter}
+        selectedResult={selectedRank}
+        onModeChange={handleGameModeChange}
+        onCharacterChange={handleCharacterChange}
+        onResultChange={handleRankChange}
+        onReset={handleResetFilters}
+      />
 
-      {/* 더 불러오기 (무한 스크롤 방식) */}
-      {hasMore && onLoadMore && (
-        <div className="text-center">
-          <Button
-            variant="outline"
-            onClick={onLoadMore}
-            disabled={isLoading}
-            className="border-dakGray-200 hover:bg-dakGray-50"
-          >
-            {isLoading ? (
-              <>
-                <LoadingSpinner size="sm" className="mr-2" />
-                불러오는 중...
-              </>
-            ) : (
-              '더 보기'
+      {/* 📋 필터링된 결과 표시 */}
+      {filteredMatches.length === 0 ? (
+        <div className="text-center py-8">
+          <div className="text-4xl mb-4">🔍</div>
+          <h3 className="text-lg font-semibold text-dakGray-900 mb-2">필터 조건에 맞는 게임이 없습니다</h3>
+          <p className="text-dakGray-500">다른 조건으로 검색해보세요.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-dakGray-900">
+              매치 기록 ({filteredMatches.length}게임)
+            </h3>
+            {(selectedCharacter !== 'all' || selectedGameMode !== 'all' || selectedRank !== 'all') && (
+              <button 
+                onClick={handleResetFilters}
+                className="text-sm text-pink-600 hover:text-pink-700 transition-colors"
+              >
+                필터 초기화
+              </button>
             )}
-          </Button>
+          </div>
+
+          {/* 🎮 가상화된 매치 카드 목록 */}
+          <div className="bg-dakGray-50 rounded-lg border border-dakGray-200">
+            <InfiniteLoader
+              isItemLoaded={isItemLoaded}
+              itemCount={itemCount}
+              loadMoreItems={loadMoreItems}
+            >
+              {({ onItemsRendered, ref }: any) => (
+                <List
+                  ref={ref}
+                  height={600} // 고정 높이 (필요에 따라 조정)
+                  width="100%" // width 추가
+                  itemCount={itemCount}
+                  itemSize={180} // 각 매치 카드의 높이
+                  onItemsRendered={onItemsRendered}
+                  className="scrollbar-thin scrollbar-thumb-dakGray-300 scrollbar-track-dakGray-100"
+                >
+                  {MatchItem}
+                </List>
+              )}
+            </InfiniteLoader>
+            
+            {/* 로딩 인디케이터 */}
+            {isLoading && (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-500"></div>
+                <span className="ml-2 text-sm text-dakGray-500">더 많은 매치를 불러오는 중...</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
-} 
+}; 

@@ -4,7 +4,7 @@
   <h1>Eterny</h1>
   <p>이터널리턴 전적 검색 플랫폼</p>
   
-  **배포 링크**: [https://eterny.vercel.app/](https://eterny.vercel.app/)
+  **배포 링크**: [https://eterny-frontend.vercel.app/](https://eterny-frontend.vercel.app/)
 </div>
 
 ---

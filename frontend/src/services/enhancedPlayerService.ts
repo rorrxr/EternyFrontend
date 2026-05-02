@@ -4,6 +4,7 @@ import { CacheService } from './cacheService';
 import { ErrorHandler, ErrorType } from '../utils/errorHandler';
 import { CommonResponse } from '../types/api';
 import { PlayerSearchResult, PlayerDetail, PlayerMatches, PlayerRank } from '../types/player';
+import { CURRENT_SEASON_ID } from '../utils/constants';
 
 export class EnhancedPlayerService {
   private static readonly CACHE_TTL = {
@@ -81,7 +82,7 @@ export class EnhancedPlayerService {
       // 병렬로 매치와 랭크 데이터 요청
       const [matches, rank] = await Promise.allSettled([
         this.getPlayerMatchesWithCache(userNum),
-        this.getPlayerRankWithCache(userNum, 22, 1)
+        this.getPlayerRankWithCache(userNum, CURRENT_SEASON_ID, 1)
       ]);
 
       if (matches.status === 'fulfilled' && matches.value.matches.length > 0) {

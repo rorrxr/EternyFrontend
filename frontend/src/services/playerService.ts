@@ -1,6 +1,7 @@
 import { apiClient } from './api';
 import { CommonResponse } from '../types/api';
 import { PlayerSearchResult, PlayerDetail, PlayerMatches, PlayerRank } from '../types/player';
+import { CURRENT_SEASON_ID } from '../utils/constants';
 
 export class PlayerService {
   static async searchPlayer(nickname: string): Promise<PlayerSearchResult[]> {
@@ -52,7 +53,7 @@ export class PlayerService {
     try {
       const [matchesResponse, rankResponse] = await Promise.allSettled([
         this.getPlayerMatches(userNum),
-        this.getPlayerRank(userNum, 22, 1)
+        this.getPlayerRank(userNum, CURRENT_SEASON_ID, 1)
       ]);
 
       if (matchesResponse.status === 'fulfilled' && rankResponse.status === 'fulfilled') {
